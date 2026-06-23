@@ -18,6 +18,7 @@ Deps:  numpy, opencv (with aruco), qrcode, Pillow
 
 import os
 import json
+import shutil
 import numpy as np
 import cv2
 from PIL import Image, ImageDraw, ImageFont
@@ -303,18 +304,34 @@ def generate_batch(n_sheets, n_questions, out_dir="omr_out", dpi=300,
     Returns a summary dict (counts + paths).
     """
     os.makedirs(out_dir, exist_ok=True)
-    pages, serials, template = [], [], None
+    serials, template = [], None
+
+    # Memory-safe: render one sheet at a time, write its page to a temp PDF, free
+    # the (~26 MB) image immediately, and merge the pages with pypdf at the end.
+    # This keeps peak RAM at ~one page instead of N pages (fits a 512 MB host).
+    writer = None
+    tmp_dir = os.path.join(out_dir, "_tmp_pages")
+    if combined_pdf:
+        from pypdf import PdfReader, PdfWriter
+        writer = PdfWriter()
+        os.makedirs(tmp_dir, exist_ok=True)
+    if save_pages:
+        os.makedirs(os.path.join(out_dir, "pages"), exist_ok=True)
+
     for i in range(n_sheets):
         serial = f"{start_serial + i:0{serial_width}d}"
         img, template, _ = _build_sheet(n_questions, serial=serial,
                                          name=f"{batch_name}_{serial}",
                                          dpi=dpi, **design)
-        pages.append(img)
         serials.append(serial)
         if save_pages:
-            os.makedirs(os.path.join(out_dir, "pages"), exist_ok=True)
             img.save(os.path.join(out_dir, "pages", serial + ".png"), "PNG",
                      dpi=(dpi, dpi))
+        if writer is not None:
+            page_pdf = os.path.join(tmp_dir, serial + ".pdf")
+            img.save(page_pdf, "PDF", resolution=float(dpi))
+            writer.append(PdfReader(page_pdf))
+        del img                     # release ~26 MB now, not at loop end
 
     # one shared template (geometry identical across the batch)
     template["serial"] = None
@@ -333,10 +350,12 @@ def generate_batch(n_sheets, n_questions, out_dir="omr_out", dpi=300,
     out = {"template": tmpl_path, "manifest": manifest_path,
            "n_sheets": n_sheets, "serials": [serials[0], serials[-1]]}
 
-    if combined_pdf:
+    if writer is not None:
         pdf_path = os.path.join(out_dir, batch_name + "_all.pdf")
-        pages[0].save(pdf_path, "PDF", resolution=float(dpi),
-                      save_all=True, append_images=pages[1:])
+        with open(pdf_path, "wb") as fh:
+            writer.write(fh)
+        writer.close()
+        shutil.rmtree(tmp_dir, ignore_errors=True)
         out["combined_pdf"] = pdf_path
     return out
 

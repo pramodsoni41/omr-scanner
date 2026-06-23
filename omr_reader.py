@@ -181,6 +181,15 @@ def grade(image_bgr, template, key,
               "correct": 0, "incorrect": 0, "unattempted": 0,
               "total_marks": 0.0, "answers": {}, "error": None}
 
+    # Downscale very large phone photos before processing — markers stay
+    # detectable at ~2200 px and this keeps memory/CPU bounded on small hosts.
+    MAXDIM = 2200
+    h0, w0 = image_bgr.shape[:2]
+    if max(h0, w0) > MAXDIM:
+        sc = MAXDIM / max(h0, w0)
+        image_bgr = cv2.resize(image_bgr, (int(w0 * sc), int(h0 * sc)),
+                               interpolation=cv2.INTER_AREA)
+
     warped, ok = warp_to_template(image_bgr, template)
     if not ok:
         result["error"] = "Could not detect the 4 corner markers."
