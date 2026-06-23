@@ -14,7 +14,8 @@ from omr_generator import generate_omr
 from omr_reader import load_template, save_key
 from test_loop import fill_sheet, fake_photo
 
-BASE = "http://127.0.0.1:8000"
+BASE = (sys.argv[1] if len(sys.argv) > 1 else os.environ.get("OMR_BASE")
+        or "http://127.0.0.1:8000").rstrip("/")
 TMP = "client_tmp"
 
 

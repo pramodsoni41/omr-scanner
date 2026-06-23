@@ -127,8 +127,9 @@
 <script>
 const $ = id => document.getElementById(id);
 
-// ---- backend URL: stored, else same-origin (works if backend serves this page)
-let API = localStorage.getItem("omr_api") || "";
+// ---- backend URL: stored override, else the deployed default
+const DEFAULT_API = "https://omr-api-vydg.onrender.com";
+let API = localStorage.getItem("omr_api") || DEFAULT_API;
 function apiBase(){ return API.replace(/\/+$/,""); }
 function api(path){ return apiBase() + path; }
 
