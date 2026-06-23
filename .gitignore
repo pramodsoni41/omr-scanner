@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Generated / test artifacts (not source)
+omr_out/
+test_out/
+auto_test/
+client_tmp/
+backend/exams/
+backend/client_tmp/
+EXAM2026_T1/
+EXAM*_*/
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

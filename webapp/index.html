@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f2937">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<title>OMR Scanner</title>
+<style>
+  :root { --bg:#f3f4f6; --card:#fff; --ink:#111827; --muted:#6b7280;
+          --accent:#2563eb; --ok:#15803d; --bad:#b91c1c; --line:#e5e7eb; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif;
+         background:var(--bg); color:var(--ink); padding-bottom:80px; }
+  header { background:#1f2937; color:#fff; padding:14px 16px; font-weight:700;
+           position:sticky; top:0; z-index:10; display:flex; justify-content:space-between;
+           align-items:center; }
+  header small { display:block; font-weight:400; opacity:.7; font-size:12px; }
+  header button.gear { background:none; border:0; color:#fff; font-size:20px; width:auto;
+                       margin:0; padding:4px; }
+  main { padding:16px; max-width:640px; margin:0 auto; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px;
+          padding:16px; margin-bottom:16px; }
+  h2 { font-size:16px; margin:0 0 12px; }
+  label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
+  input, select { width:100%; padding:11px; border:1px solid var(--line);
+                  border-radius:10px; font-size:15px; background:#fff; }
+  .row { display:flex; gap:10px; } .row > div { flex:1; }
+  button { width:100%; padding:13px; border:0; border-radius:10px; font-size:15px;
+           font-weight:600; background:var(--accent); color:#fff; margin-top:14px; }
+  button.sec { background:#e5e7eb; color:#111827; }
+  button:disabled { opacity:.5; }
+  .muted { color:var(--muted); font-size:13px; }
+  .pill { display:inline-block; background:#eef2ff; color:#3730a3; border-radius:999px;
+          padding:3px 10px; font-size:12px; font-weight:600; }
+  table { width:100%; border-collapse:collapse; font-size:14px; margin-top:10px; }
+  th,td { text-align:left; padding:7px 6px; border-bottom:1px solid var(--line); }
+  td.n { text-align:right; font-variant-numeric:tabular-nums; }
+  .ok { color:var(--ok); font-weight:700; } .bad { color:var(--bad); font-weight:700; }
+  nav { position:fixed; bottom:0; left:0; right:0; background:#fff;
+        border-top:1px solid var(--line); display:flex; }
+  nav button { flex:1; background:none; color:var(--muted); border-radius:0;
+               margin:0; padding:10px 0 14px; font-size:12px; font-weight:600; }
+  nav button.active { color:var(--accent); }
+  nav button span { display:block; font-size:20px; }
+  .hidden { display:none; }
+  .note { font-size:12px; color:var(--muted); margin-top:6px; }
+  a.btnlink { display:block; text-align:center; text-decoration:none; }
+  .imgwrap img { width:100%; border-radius:10px; border:1px solid var(--line); margin-top:10px; }
+  .err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca;
+         padding:10px; border-radius:10px; font-size:13px; margin-top:10px; }
+  .warn { background:#fffbeb; color:#92400e; border:1px solid #fde68a;
+          padding:10px; border-radius:10px; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <div>OMR Scanner <small id="examline"></small></div>
+  <button class="gear" onclick="show('server')" title="Server settings">⚙️</button>
+</header>
+
+<main>
+  <!-- ============ SERVER SETTINGS ============ -->
+  <section id="tab-server" class="card hidden">
+    <h2>Server</h2>
+    <p class="muted">Address of the OMR engine (the Python host). Paste the URL you
+       deployed, e.g. <code>https://omr-api.onrender.com</code>.</p>
+    <label>Backend URL</label>
+    <input id="api_url" type="url" placeholder="https://omr-api.onrender.com">
+    <button onclick="saveApi()">Save &amp; test</button>
+    <div id="server_out"></div>
+  </section>
+
+  <!-- ============ SETUP / GENERATE ============ -->
+  <section id="tab-setup" class="card">
+    <h2>1 · Create exam &amp; sheets</h2>
+    <div class="row">
+      <div><label>Questions</label><input id="g_q" type="number" value="100" min="1" max="400"></div>
+      <div><label>Options</label><input id="g_o" type="number" value="4" min="2" max="6"></div>
+    </div>
+    <div class="row">
+      <div><label>Roll digits</label><input id="g_r" type="number" value="10" min="1" max="15"></div>
+      <div><label>Sets</label><input id="g_s" type="number" value="4" min="0" max="6"></div>
+    </div>
+    <div class="row">
+      <div><label>Per column</label><input id="g_pc" type="number" value="25" min="1" max="50"></div>
+      <div><label>No. of sheets</label><input id="g_n" type="number" value="10" min="1" max="2000"></div>
+    </div>
+    <label>Title on sheet</label>
+    <input id="g_title" type="text" value="IIT (BHU) - OMR ANSWER SHEET">
+    <button id="g_btn" onclick="generate()">Generate sheets</button>
+    <div id="g_out"></div>
+  </section>
+
+  <!-- ============ KEY ============ -->
+  <section id="tab-key" class="card hidden">
+    <h2>2 · Upload answer key</h2>
+    <p class="muted">Excel/CSV: one row per question, one column per set (A, B, …).</p>
+    <input id="k_file" type="file" accept=".xlsx,.csv">
+    <button id="k_btn" onclick="uploadKey()">Upload key</button>
+    <div id="k_out"></div>
+  </section>
+
+  <!-- ============ SCAN / GRADE ============ -->
+  <section id="tab-scan" class="card hidden">
+    <h2>3 · Scan &amp; grade</h2>
+    <p class="muted">Photograph filled sheets — keep all 4 corner markers in frame.</p>
+    <div class="row">
+      <div><label>Correct</label><input id="m_c" type="number" value="1" step="0.25"></div>
+      <div><label>Wrong</label><input id="m_w" type="number" value="0" step="0.25"></div>
+      <div><label>Blank</label><input id="m_b" type="number" value="0" step="0.25"></div>
+    </div>
+    <label>Photos (camera or gallery, multiple)</label>
+    <input id="s_files" type="file" accept="image/*" capture="environment" multiple>
+    <button id="s_btn" onclick="gradeScans()">Grade</button>
+    <div id="s_out"></div>
+  </section>
+</main>
+
+<nav>
+  <button id="n-setup" class="active" onclick="show('setup')"><span>🛠️</span>Setup</button>
+  <button id="n-key" onclick="show('key')"><span>🔑</span>Key</button>
+  <button id="n-scan" onclick="show('scan')"><span>📷</span>Scan</button>
+</nav>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ---- backend URL: stored, else same-origin (works if backend serves this page)
+let API = localStorage.getItem("omr_api") || "";
+function apiBase(){ return API.replace(/\/+$/,""); }
+function api(path){ return apiBase() + path; }
+
+let EXAM = localStorage.getItem("exam_id") || null;
+boot();
+
+function boot(){
+  $("api_url").value = API;
+  refreshExamLine();
+  if(!API){ show("server"); $("server_out").innerHTML =
+      '<div class="warn">Set your backend URL once to start. If you don\'t have one yet, '+
+      'deploy the engine (see DEPLOY.md) and paste its address here.</div>'; }
+}
+function refreshExamLine(){
+  $("examline").textContent = EXAM ? ("Exam: " + EXAM) : "set up an exam below";
+}
+function show(t){
+  for (const k of ["server","setup","key","scan"]) $("tab-"+k).classList.add("hidden");
+  $("tab-"+t).classList.remove("hidden");
+  for (const k of ["setup","key","scan"]) $("n-"+k)?.classList.toggle("active", k===t);
+}
+function err(el, msg){ $(el).innerHTML = '<div class="err">'+msg+'</div>'; }
+
+async function saveApi(){
+  API = $("api_url").value.trim();
+  localStorage.setItem("omr_api", API);
+  $("server_out").innerHTML = '<p class="muted">Testing…</p>';
+  try{
+    const r = await fetch(api("/health"), {method:"GET"});
+    const j = await r.json();
+    $("server_out").innerHTML = '<p class="ok" style="margin-top:10px">✓ Connected ('+
+      j.service+', '+j.exams+' exams).</p>';
+  }catch(e){ err("server_out", "Could not reach "+apiBase()+" — check the URL and that the server is awake."); }
+}
+
+async function generate(){
+  if(!API) return show("server");
+  $("g_btn").disabled = true; $("g_out").innerHTML = '<p class="muted">Generating…</p>';
+  try{
+    const body = {
+      n_questions:+$("g_q").value, n_options:+$("g_o").value,
+      roll_digits:+$("g_r").value, n_sets:+$("g_s").value,
+      questions_per_column:+$("g_pc").value, n_sheets:+$("g_n").value,
+      title:$("g_title").value
+    };
+    const r = await fetch(api("/generate"), {method:"POST",
+      headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+    if(!r.ok) throw new Error(await r.text());
+    const j = await r.json();
+    EXAM = j.exam_id; localStorage.setItem("exam_id", EXAM); refreshExamLine();
+    $("g_out").innerHTML =
+      '<p style="margin-top:14px"><span class="pill">Exam '+j.exam_id+'</span> '+j.n_sheets+' sheets ready.</p>'+
+      '<a class="btnlink" href="'+api(j.sheets_pdf)+'" target="_blank"><button>⬇ Download / print sheets (PDF)</button></a>'+
+      '<p class="note">Next: go to “Key”, then “Scan”.</p>';
+  }catch(e){ err("g_out", e.message); }
+  finally{ $("g_btn").disabled = false; }
+}
+
+async function uploadKey(){
+  if(!API) return show("server");
+  if(!EXAM){ return err("k_out","Create an exam first (Setup)."); }
+  const f = $("k_file").files[0];
+  if(!f){ return err("k_out","Choose a key file."); }
+  $("k_btn").disabled = true; $("k_out").innerHTML = '<p class="muted">Uploading…</p>';
+  try{
+    const fd = new FormData(); fd.append("file", f);
+    const r = await fetch(api("/exams/"+EXAM+"/key"), {method:"POST", body:fd});
+    if(!r.ok) throw new Error(await r.text());
+    $("k_out").innerHTML = '<p class="ok" style="margin-top:12px">✓ Key uploaded.</p>'+
+      '<p class="note">Now go to “Scan”.</p>';
+  }catch(e){ err("k_out", e.message); }
+  finally{ $("k_btn").disabled = false; }
+}
+
+async function gradeScans(){
+  if(!API) return show("server");
+  if(!EXAM){ return err("s_out","Create an exam first (Setup)."); }
+  const fs = $("s_files").files;
+  if(!fs.length){ return err("s_out","Choose one or more photos."); }
+  $("s_btn").disabled = true; $("s_out").innerHTML = '<p class="muted">Grading '+fs.length+'…</p>';
+  try{
+    const fd = new FormData();
+    for(const f of fs) fd.append("files", f);
+    fd.append("marks_correct", $("m_c").value);
+    fd.append("marks_incorrect", $("m_w").value);
+    fd.append("marks_unattempted", $("m_b").value);
+    const r = await fetch(api("/exams/"+EXAM+"/grade"), {method:"POST", body:fd});
+    if(!r.ok) throw new Error(await r.text());
+    const j = await r.json();
+    let html = '<table><tr><th>Roll</th><th>Set</th><th>✓</th><th>✗</th><th>Marks</th></tr>';
+    for(const x of j.results){
+      if(x.error){ html += '<tr><td colspan="5" class="bad">'+x.FILENAME+': '+x.error+'</td></tr>'; continue; }
+      html += '<tr><td>'+(x.roll||'?')+'</td><td>'+(x.set||'?')+'</td>'+
+              '<td class="n ok">'+x.correct+'</td><td class="n bad">'+x.incorrect+'</td>'+
+              '<td class="n"><b>'+x.total_marks+'</b></td></tr>';
+    }
+    html += '</table>';
+    html += '<a class="btnlink" href="'+api(j.marksheet)+'" target="_blank"><button class="sec">⬇ Download marksheet (Excel)</button></a>';
+    const first = j.results.find(x=>x.graded_image);
+    if(first) html += '<div class="imgwrap"><p class="note">Checked sheet:</p><img src="'+api(first.graded_image)+'"></div>';
+    $("s_out").innerHTML = html;
+  }catch(e){ err("s_out", e.message); }
+  finally{ $("s_btn").disabled = false; }
+}
+
+if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+</script>
+</body>
+</html>

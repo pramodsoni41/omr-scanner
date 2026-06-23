@@ -1,0 +1,12 @@
+# OMR backend — runs on any Python host (Render / Railway / PythonAnywhere).
+# opencv-python-headless >= 4.7 ships the ArUco detector in the main module
+# (no opencv-contrib needed) and has no GUI/libGL dependency, ideal for servers.
+fastapi
+uvicorn[standard]
+python-multipart
+numpy
+pandas
+openpyxl
+pillow
+qrcode
+opencv-python-headless>=4.7

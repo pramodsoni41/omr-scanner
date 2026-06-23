@@ -1,0 +1,14 @@
+# Render Blueprint — deploys the OMR backend as a free web service.
+# In Render: New → Blueprint → pick this repo. Render reads this file and
+# configures everything below automatically.
+services:
+  - type: web
+    name: omr-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
