@@ -48,6 +48,13 @@
   .note { font-size:12px; color:var(--muted); margin-top:6px; }
   a.btnlink { display:block; text-align:center; text-decoration:none; }
   .imgwrap img { width:100%; border-radius:10px; border:1px solid var(--line); margin-top:10px; }
+  .gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr));
+             gap:10px; margin-top:8px; }
+  .thumb { display:block; text-decoration:none; border:1px solid var(--line);
+           border-radius:10px; overflow:hidden; background:#fff; }
+  .thumb img { width:100%; display:block; aspect-ratio:3/4; object-fit:cover; }
+  .thumb span { display:block; font-size:11px; color:var(--muted); padding:4px 6px;
+                text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .err { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca;
          padding:10px; border-radius:10px; font-size:13px; margin-top:10px; }
   .warn { background:#fffbeb; color:#92400e; border:1px solid #fde68a;
@@ -282,8 +289,20 @@ async function gradeScans(){
     }
     html += '</table>';
     html += '<a class="btnlink" href="'+api(j.marksheet)+'" target="_blank"><button class="sec">⬇ Download marksheet (Excel)</button></a>';
-    const first = j.results.find(x=>x.graded_image);
-    if(first) html += '<div class="imgwrap"><p class="note">Checked sheet:</p><img src="'+api(first.graded_image)+'"></div>';
+    const imgs = j.results.filter(x=>x.graded_image);
+    if(imgs.length){
+      html += '<a class="btnlink" href="'+api("/exams/"+EXAM+"/graded.zip")+'" target="_blank">'+
+              '<button class="sec">⬇ Download all checked sheets (ZIP)</button></a>';
+      html += '<p class="note" style="margin-top:12px">Checked sheets ('+imgs.length+') — tap any to open full size:</p>';
+      html += '<div class="gallery">';
+      for(const x of imgs){
+        const u = api(x.graded_image);
+        html += '<a class="thumb" href="'+u+'" target="_blank">'+
+                '<img src="'+u+'" loading="lazy">'+
+                '<span>'+(x.roll||x.FILENAME||'sheet')+'</span></a>';
+      }
+      html += '</div>';
+    }
     $("s_out").innerHTML = html;
   }catch(e){ err("s_out", e.message); }
   finally{ $("s_btn").disabled = false; }
