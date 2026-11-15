@@ -23,9 +23,11 @@ GET  /exams/{id}/marksheet.xlsx      consolidated marksheet
 """
 
 import os
+import re
 import sys
 import uuid
 import shutil
+import zipfile
 
 import cv2
 import numpy as np
@@ -173,7 +175,7 @@ async def grade(exam_id,
     os.makedirs(graded_dir, exist_ok=True)
 
     results = []
-    for uf in files:
+    for idx, uf in enumerate(files):
         data = np.frombuffer(await uf.read(), np.uint8)
         img = cv2.imdecode(data, cv2.IMREAD_COLOR)
         if img is None:
@@ -184,8 +186,13 @@ async def grade(exam_id,
                                marks_incorrect=marks_incorrect,
                                marks_unattempted=marks_unattempted)
         res["FILENAME"] = uf.filename
-        tag = res.get("roll") or os.path.splitext(uf.filename)[0]
-        annot_name = f"{tag}.jpg"
+        # unique file name per sheet (filename stem keeps re-grades stable and
+        # avoids collisions when two sheets share a roll / have no roll)
+        stem = re.sub(r"[^A-Za-z0-9_.-]+", "_",
+                      os.path.splitext(os.path.basename(uf.filename))[0])[:40]
+        tag = stem or (res.get("roll") or f"sheet{idx:03d}")
+        roll = res.get("roll")
+        annot_name = f"{roll + '_' if roll and roll != '?' else ''}{tag}.jpg"
         cv2.imwrite(os.path.join(graded_dir, annot_name), annot)
         res["graded_image"] = f"/exams/{exam_id}/graded/{annot_name}"
         results.append(res)
@@ -222,6 +229,25 @@ def marksheet(exam_id):
     return FileResponse(
         p, filename=f"{exam_id}_marksheet.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
+@app.get("/exams/{exam_id}/graded.zip")
+def graded_zip(exam_id):
+    """All checked (annotated) sheets graded so far, as one ZIP."""
+    d = _exam_dir(exam_id)
+    graded = os.path.join(d, "graded")
+    names = sorted(f for f in os.listdir(graded)
+                   if os.path.isfile(os.path.join(graded, f))) \
+        if os.path.isdir(graded) else []
+    if not names:
+        raise HTTPException(404, "nothing graded yet")
+    zip_path = os.path.join(d, "checked_sheets.zip")
+    # JPEGs are already compressed -> store (fast, no CPU spent recompressing)
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_STORED) as zf:
+        for name in names:
+            zf.write(os.path.join(graded, name), arcname=name)
+    return FileResponse(zip_path, media_type="application/zip",
+                        filename=f"{exam_id}_checked_sheets.zip")
 
 
 @app.get("/health")
