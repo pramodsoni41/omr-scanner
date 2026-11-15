@@ -19,12 +19,23 @@ Deps:  numpy, opencv (with aruco), pandas (only for xlsx/csv keys)
 """
 
 import os
+import re
 import glob
 import json
 import numpy as np
 import cv2
 
 ARUCO_DICT_ID = cv2.aruco.DICT_4X4_50
+
+# A key column names a set: "A", "Set A", "SET-B", "set_c" ... (A-F = up to 6 sets)
+_SET_COL_RE = re.compile(r'^(?:SET[\s\-_]*)?([A-F])$')
+
+
+def _col_set_letter(header):
+    """Return the set letter (A-F) a key column header denotes, else None.
+    Matches 'A', 'Set A', 'SET-B', etc. (not the question-number column)."""
+    m = _SET_COL_RE.match(str(header).strip().upper())
+    return m.group(1) if m else None
 
 
 # --------------------------------------------------------------------------- #
@@ -88,15 +99,18 @@ def load_key(key, set_label=None):
     # path to xlsx / csv
     import pandas as pd
     df = pd.read_csv(key) if str(key).lower().endswith(".csv") else pd.read_excel(key)
-    # choose the column for this set: by header letter, else positional
-    col = None
-    if set_label is not None:
-        for c in df.columns:
-            if str(c).strip().upper() == str(set_label).strip().upper():
-                col = c
-                break
-    if col is None:
-        # assume col 0 may be question numbers; first answer column otherwise
+    # map set letter -> column, accepting headers like "A", "Set A", "SET-B"
+    set_cols = {}
+    for c in df.columns:
+        L = _col_set_letter(c)
+        if L and L not in set_cols:
+            set_cols[L] = c
+    want = str(set_label).strip().upper() if set_label is not None else None
+    if want and want in set_cols:
+        col = set_cols[want]
+    elif set_cols:
+        col = next(iter(set_cols.values()))          # first set column
+    else:
         col = df.columns[1] if df.shape[1] > 1 else df.columns[0]
     answers = {}
     for i, v in enumerate(df[col].tolist(), start=1):
@@ -104,6 +118,30 @@ def load_key(key, set_label=None):
         if s and s != "NAN":
             answers[i] = s
     return answers
+
+
+def load_key_all(key):
+    """Parse a key file for DISPLAY. Returns (sets, rows).
+
+    sets : ['A', 'B', ...]                      (set letters found)
+    rows : [{'q': 1, 'A': 'C', 'B': 'C'}, ...]  (blank cell -> "")
+    """
+    import pandas as pd
+    df = pd.read_csv(key) if str(key).lower().endswith(".csv") else pd.read_excel(key)
+    set_cols = {}
+    for c in df.columns:
+        L = _col_set_letter(c)
+        if L and L not in set_cols:
+            set_cols[L] = c
+    sets = list(set_cols.keys())
+    rows = []
+    for i in range(len(df)):
+        row = {"q": i + 1}
+        for L, c in set_cols.items():
+            v = str(df[c].iloc[i]).strip().upper()
+            row[L] = "" if v in ("", "NAN") else v
+        rows.append(row)
+    return sets, rows
 
 
 # --------------------------------------------------------------------------- #

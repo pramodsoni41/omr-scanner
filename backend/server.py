@@ -120,12 +120,28 @@ async def upload_key(exam_id, file: UploadFile = File(...)):
     dst = os.path.join(d, "key" + ext)
     with open(dst, "wb") as fh:
         shutil.copyfileobj(file.file, fh)
-    # quick validation
+    # validate + build a preview of the parsed key
     try:
-        rdr.load_key(dst, set_label="A")
+        sets, rows = rdr.load_key_all(dst)
+        if not sets:
+            raise ValueError("no set columns found — use headers like "
+                             "'Set A', 'Set B' (or 'A', 'B').")
     except Exception as e:
+        os.remove(dst)
         raise HTTPException(400, f"could not read key: {e}")
-    return {"ok": True, "key": os.path.basename(dst)}
+    return {"ok": True, "key": os.path.basename(dst),
+            "sets": sets, "n_questions": len(rows), "rows": rows}
+
+
+@app.get("/exams/{exam_id}/key")
+def get_key(exam_id):
+    """Return the parsed answer key (for display while grading)."""
+    d = _exam_dir(exam_id)
+    key = _find_key(d)
+    if key is None:
+        raise HTTPException(404, "no answer key uploaded")
+    sets, rows = rdr.load_key_all(key)
+    return {"sets": sets, "n_questions": len(rows), "rows": rows}
 
 
 def _find_key(d):
