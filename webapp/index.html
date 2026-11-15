@@ -96,8 +96,12 @@
   <!-- ============ KEY ============ -->
   <section id="tab-key" class="card hidden">
     <h2>2 · Upload answer key</h2>
-    <p class="muted">Excel/CSV: one row per question, one column per set (A, B, …).</p>
-    <input id="k_file" type="file" accept=".xlsx,.csv">
+    <p class="muted">CSV/Excel: first column = question number, then one column per set
+      (<b>Set A</b>, <b>Set B</b>, …). In each cell put the correct option (A/B/C/D).
+      Leave a cell <b>blank</b> to skip that question; put <b>ABCD</b> to give everyone
+      full marks (dropped/bonus question).</p>
+    <button class="sec" onclick="downloadSample()">⬇ Download sample key (CSV)</button>
+    <input id="k_file" type="file" accept=".xlsx,.csv" style="margin-top:12px">
     <button id="k_btn" onclick="uploadKey()">Upload key</button>
     <div id="k_out"></div>
   </section>
@@ -106,6 +110,7 @@
   <section id="tab-scan" class="card hidden">
     <h2>3 · Scan &amp; grade</h2>
     <p class="muted">Photograph filled sheets — keep all 4 corner markers in frame.</p>
+    <div id="keyview"></div>
     <div class="row">
       <div><label>Correct</label><input id="m_c" type="number" value="1" step="0.25"></div>
       <div><label>Wrong</label><input id="m_w" type="number" value="0" step="0.25"></div>
@@ -150,8 +155,54 @@ function show(t){
   for (const k of ["server","setup","key","scan"]) $("tab-"+k).classList.add("hidden");
   $("tab-"+t).classList.remove("hidden");
   for (const k of ["setup","key","scan"]) $("n-"+k)?.classList.toggle("active", k===t);
+  if (t === "scan") loadKeyView();     // show the uploaded key while grading
 }
 function err(el, msg){ $(el).innerHTML = '<div class="err">'+msg+'</div>'; }
+
+// ---- answer-key rendering / sample / fetch --------------------------------
+function keyTableHTML(data){
+  if(!data || !data.sets || !data.sets.length) return '<p class="muted">No key.</p>';
+  let h = '<div style="max-height:320px;overflow:auto;margin-top:8px">'+
+          '<table><tr><th>Q</th>';
+  for(const s of data.sets) h += '<th>Set '+s+'</th>';
+  h += '</tr>';
+  for(const r of data.rows){
+    h += '<tr><td>'+r.q+'</td>';
+    for(const s of data.sets){ const v=r[s]||''; h += '<td>'+(v||'—')+'</td>'; }
+    h += '</tr>';
+  }
+  return h + '</table></div>';
+}
+
+function downloadSample(){
+  const nq = Math.max(1, +$("g_q").value || 100);
+  const ns = Math.max(1, +$("g_s").value || 2);
+  const sets = [];
+  for(let i=0;i<ns;i++) sets.push("Set "+String.fromCharCode(65+i));
+  let csv = "," + sets.join(",") + "\r\n";
+  for(let q=1;q<=nq;q++){
+    const ex = q===1?"A":q===2?"C":q===3?"":q===4?"ABCD":"";  // show A / C / blank / ABCD
+    csv += q + sets.map(()=>","+ex).join("") + "\r\n";
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv"}));
+  a.download = "sample_key.csv"; document.body.appendChild(a); a.click();
+  a.remove(); URL.revokeObjectURL(a.href);
+}
+
+async function loadKeyView(){
+  $("keyview").innerHTML = "";
+  if(!API || !EXAM) return;
+  try{
+    const r = await fetch(api("/exams/"+EXAM+"/key"));
+    if(!r.ok) return;                       // no key yet -> show nothing
+    const j = await r.json();
+    $("keyview").innerHTML =
+      '<details open style="margin:4px 0 10px"><summary style="cursor:pointer;color:var(--muted);font-size:13px">'+
+      'Answer key ('+j.sets.map(s=>"Set "+s).join(", ")+', '+j.n_questions+' Q) — tap to collapse</summary>'+
+      keyTableHTML(j)+'</details>';
+  }catch(e){ /* ignore */ }
+}
 
 async function saveApi(){
   API = $("api_url").value.trim();
@@ -198,8 +249,11 @@ async function uploadKey(){
     const fd = new FormData(); fd.append("file", f);
     const r = await fetch(api("/exams/"+EXAM+"/key"), {method:"POST", body:fd});
     if(!r.ok) throw new Error(await r.text());
-    $("k_out").innerHTML = '<p class="ok" style="margin-top:12px">✓ Key uploaded.</p>'+
-      '<p class="note">Now go to “Scan”.</p>';
+    const j = await r.json();
+    $("k_out").innerHTML = '<p class="ok" style="margin-top:12px">✓ Key uploaded — '+
+      j.sets.map(s=>"Set "+s).join(", ")+', '+j.n_questions+' questions.</p>'+
+      keyTableHTML(j)+
+      '<p class="note">This key will be shown on the “Scan” tab while grading. Now go to “Scan”.</p>';
   }catch(e){ err("k_out", e.message); }
   finally{ $("k_btn").disabled = false; }
 }
