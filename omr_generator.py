@@ -192,7 +192,7 @@ def _build_sheet(
     roll_w = lab_gutter + roll_digits * col_gap + pad
     roll_h = mm(6, dpi) + box_h + mm(2, dpi) + 10 * row_gap + pad
     roll_box = [inner_l, top, inner_l + roll_w, top + roll_h]
-    c_top = _panel(draw, roll_box, "ROLL NUMBER", f_hdr, dpi)
+    c_top = _panel(draw, roll_box, "APPLICATION NO.", f_hdr, dpi)
 
     grid_x0 = inner_l + lab_gutter + col_gap / 2
     box_y0 = c_top + mm(2, dpi)
@@ -217,9 +217,10 @@ def _build_sheet(
                                      "x": cx, "y": cy, "r": bubble_r})
 
     # ---- 4. SET panel (right of roll) ------------------------------------- #
+    set_panel_right = inner_l + roll_w + mm(5, dpi)   # left edge of SET panel
     if n_sets > 0:
-        set_box = [inner_l + roll_w + mm(5, dpi), top,
-                   inner_l + roll_w + mm(5, dpi) + mm(18, dpi),
+        set_box = [set_panel_right, top,
+                   set_panel_right + mm(18, dpi),
                    top + mm(6, dpi) + box_h + n_sets * row_gap + pad]
         s_top = _panel(draw, set_box, "SET", f_hdr, dpi)
         sx = (set_box[0] + set_box[2]) / 2
@@ -227,6 +228,36 @@ def _build_sheet(
             cy = s_top + mm(4, dpi) + i * row_gap + bubble_r
             _bubble(draw, sx, cy, bubble_r, lab, f_small)
             template["sets"].append({"label": lab, "x": sx, "y": cy, "r": bubble_r})
+        info_left = set_box[2] + mm(5, dpi)
+    else:
+        info_left = set_panel_right
+
+    # ---- 4b. Candidate info panel (Name + 2 signatures) ------------------- #
+    info_right = inner_r
+    info_box_h = mm(9, dpi)       # height of each fill box
+    info_gap   = mm(5, dpi)       # gap between boxes
+    info_labels = ["Name", "Candidate Sign.", "Invigilator Sign."]
+    n_info = len(info_labels)
+    _lbl_h = mm(2.4, dpi) + mm(1.2, dpi)              # approx label text + gap
+    info_panel_h = (mm(6, dpi)                        # panel header bar
+                    + mm(3, dpi)                       # top padding
+                    + n_info * (_lbl_h + info_box_h)  # label + box per row
+                    + (n_info - 1) * info_gap          # gaps between rows
+                    + mm(4, dpi))                      # bottom padding
+    info_panel_box = [info_left, top, info_right, top + info_panel_h]
+    ci_top = _panel(draw, info_panel_box, "CANDIDATE INFO", f_hdr, dpi)
+    iy = ci_top + mm(3, dpi)
+    for lbl in info_labels:
+        # small label above the box
+        draw.text((info_left + mm(2, dpi), iy), lbl, font=f_tiny, fill=PANEL)
+        lbl_h = draw.textbbox((0, 0), lbl, font=f_tiny)[3]
+        box_y0_i = iy + lbl_h + mm(0.8, dpi)
+        draw.rectangle(
+            [info_left + mm(2, dpi), box_y0_i,
+             info_right - mm(2, dpi), box_y0_i + info_box_h],
+            outline=PANEL, width=max(1, mm(0.3, dpi))
+        )
+        iy = box_y0_i + info_box_h + info_gap
 
     # ---- 5. Answers panel (adaptive: bubbles grow to fill the space) ------ #
     ans_top = max(roll_box[3], top + mm(70, dpi)) + mm(6, dpi)
