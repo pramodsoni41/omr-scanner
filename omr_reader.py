@@ -205,7 +205,7 @@ def _otsu(scores):
     if s.size < 2 or s.min() == s.max():
         return 0.45
     t, _ = cv2.threshold(s, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return max(t / 255.0, 0.30)        # floor avoids flagging faint print as marks
+    return max(t / 255.0, 0.18)        # floor avoids flagging faint printed labels (~0.05) as marks
 
 
 # --------------------------------------------------------------------------- #
