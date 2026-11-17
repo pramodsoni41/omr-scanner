@@ -233,7 +233,9 @@ def _build_sheet(
         info_left = set_panel_right
 
     # ---- 4b. Candidate info panel (Name + 2 signatures) ------------------- #
-    info_right = inner_r
+    # QR code occupies the top-right corner (inner_r - qr_side .. inner_r),
+    # so cap the panel's right edge to avoid covering it.
+    info_right = inner_r - mm(24, dpi) - mm(4, dpi)
     info_box_h = mm(9, dpi)       # height of each fill box
     info_gap   = mm(5, dpi)       # gap between boxes
     info_labels = ["Name", "Candidate Sign.", "Invigilator Sign."]
