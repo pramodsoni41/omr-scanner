@@ -129,14 +129,13 @@
     <input id="g_title" type="text" value="IIT (BHU) - OMR ANSWER SHEET">
     <label>ID block label (e.g. APPLICATION NO. or ROLL NUMBER)</label>
     <input id="g_idlabel" type="text" value="APPLICATION NO.">
-    <label>Write-in boxes (tick to include; edit the label)</label>
+    <label>Write-in boxes (tick to include; edit the label — up to 4)</label>
     <div id="infofields">
       <div class="ff"><input type="checkbox" class="ff_chk" checked><input type="text" class="ff_txt" value="Candidate Name"></div>
       <div class="ff"><input type="checkbox" class="ff_chk" checked><input type="text" class="ff_txt" value="Specialization"></div>
       <div class="ff"><input type="checkbox" class="ff_chk" checked><input type="text" class="ff_txt" value="Candidate Sign"></div>
       <div class="ff"><input type="checkbox" class="ff_chk" checked><input type="text" class="ff_txt" value="Invigilator Sign"></div>
     </div>
-    <button id="addfield" onclick="addField()">+ Add another box</button>
     <button id="g_btn" onclick="generate()">Generate sheets</button>
     <div id="g_out"></div>
   </section>
@@ -281,14 +280,6 @@ async function saveApi(){
   }catch(e){ err("server_out", "Could not reach "+apiBase()+" — check the URL and that the server is awake."); }
 }
 
-function addField(){
-  const row = document.createElement("div");
-  row.className = "ff";
-  row.innerHTML = '<input type="checkbox" class="ff_chk" checked>'+
-                  '<input type="text" class="ff_txt" placeholder="Box label">';
-  document.getElementById("infofields").appendChild(row);
-}
-
 async function generate(){
   if(!API) return show("server");
   $("g_btn").disabled = true; $("g_out").innerHTML = '<p class="muted">Generating…</p>';
@@ -296,7 +287,7 @@ async function generate(){
     const info_fields = [...document.querySelectorAll('#infofields .ff')]
       .filter(r => r.querySelector('.ff_chk').checked)
       .map(r => r.querySelector('.ff_txt').value.trim())
-      .filter(Boolean);
+      .filter(Boolean).slice(0, 4);
     const body = {
       n_questions:+$("g_q").value, n_options:+$("g_o").value,
       roll_digits:+$("g_r").value, n_sets:+$("g_s").value,

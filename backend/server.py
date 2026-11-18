@@ -254,7 +254,7 @@ def graded_zip(exam_id):
                         filename=f"{exam_id}_checked_sheets.zip")
 
 
-BUILD = "2026-11-18-info-fields-config"   # bump on each deploy to verify it's live
+BUILD = "2026-11-18-info-fields-max4"   # bump on each deploy to verify it's live
 
 
 @app.get("/health")

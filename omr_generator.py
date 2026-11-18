@@ -240,7 +240,8 @@ def _build_sheet(
     if info_fields is None:
         info_fields = ["Candidate Name", "Specialization",
                        "Candidate Sign", "Invigilator Sign"]
-    info_fields = [str(s).strip() for s in info_fields if str(s).strip()]
+    # at most 4 boxes fit above the answers block
+    info_fields = [str(s).strip() for s in info_fields if str(s).strip()][:4]
     info_right = inner_r                                   # extend wide
     qr_bottom = (qr_y + qr_side + mm(7, dpi)) if _HAVE_QR else top
     iy = max(top, qr_bottom)
