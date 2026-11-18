@@ -238,7 +238,7 @@ def _build_sheet(
     info_right = inner_r - mm(24, dpi) - mm(4, dpi)
     info_box_h = mm(9, dpi)       # height of each fill box
     info_gap   = mm(5, dpi)       # gap between boxes
-    info_labels = ["Name", "Candidate Sign.", "Invigilator Sign."]
+    info_labels = ["Specialization", "Candidate Sign", "Invigilator Sign"]
     n_info = len(info_labels)
     _lbl_h = mm(2.4, dpi) + mm(1.2, dpi)              # approx label text + gap
     info_panel_h = (mm(6, dpi)                        # panel header bar
