@@ -233,34 +233,22 @@ def _build_sheet(
     else:
         info_left = set_panel_right
 
-    # ---- 4b. Candidate info panel (Name + 2 signatures) ------------------- #
-    # QR code occupies the top-right corner (inner_r - qr_side .. inner_r),
-    # so cap the panel's right edge to avoid covering it.
-    info_right = inner_r - mm(24, dpi) - mm(4, dpi)
-    info_box_h = mm(9, dpi)       # height of each fill box
-    info_gap   = mm(5, dpi)       # gap between boxes
+    # ---- 4b. Write-in fields: wide boxes, no "CANDIDATE INFO" chrome ------- #
+    # Label above each box; boxes run wide to the right margin. They start below
+    # the QR block (top-right) so the wide boxes clear it.
     info_labels = ["Specialization", "Candidate Sign", "Invigilator Sign"]
-    n_info = len(info_labels)
-    _lbl_h = mm(2.4, dpi) + mm(1.2, dpi)              # approx label text + gap
-    info_panel_h = (mm(6, dpi)                        # panel header bar
-                    + mm(3, dpi)                       # top padding
-                    + n_info * (_lbl_h + info_box_h)  # label + box per row
-                    + (n_info - 1) * info_gap          # gaps between rows
-                    + mm(4, dpi))                      # bottom padding
-    info_panel_box = [info_left, top, info_right, top + info_panel_h]
-    ci_top = _panel(draw, info_panel_box, "CANDIDATE INFO", f_hdr, dpi)
-    iy = ci_top + mm(3, dpi)
+    info_box_h = mm(9, dpi)
+    info_gap = mm(4, dpi)
+    info_right = inner_r                                   # extend wide
+    qr_bottom = (qr_y + qr_side + mm(7, dpi)) if _HAVE_QR else top
+    iy = max(top, qr_bottom)
     for lbl in info_labels:
-        # small label above the box
-        draw.text((info_left + mm(2, dpi), iy), lbl, font=f_tiny, fill=PANEL)
-        lbl_h = draw.textbbox((0, 0), lbl, font=f_tiny)[3]
-        box_y0_i = iy + lbl_h + mm(0.8, dpi)
-        draw.rectangle(
-            [info_left + mm(2, dpi), box_y0_i,
-             info_right - mm(2, dpi), box_y0_i + info_box_h],
-            outline=PANEL, width=max(1, mm(0.3, dpi))
-        )
-        iy = box_y0_i + info_box_h + info_gap
+        draw.text((info_left, iy), lbl, font=f_small, fill=INK)
+        lbl_h = draw.textbbox((0, 0), lbl, font=f_small)[3]
+        by0 = iy + lbl_h + mm(1.4, dpi)
+        draw.rectangle([info_left, by0, info_right, by0 + info_box_h],
+                       outline=PANEL, width=max(1, mm(0.3, dpi)))
+        iy = by0 + info_box_h + info_gap
 
     # ---- 5. Answers panel (adaptive: bubbles grow to fill the space) ------ #
     ans_top = max(roll_box[3], top + mm(70, dpi)) + mm(6, dpi)

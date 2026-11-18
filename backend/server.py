@@ -251,7 +251,7 @@ def graded_zip(exam_id):
                         filename=f"{exam_id}_checked_sheets.zip")
 
 
-BUILD = "2026-11-18-id-label-field"   # bump on each deploy to verify it's live
+BUILD = "2026-11-18-wide-info-boxes"   # bump on each deploy to verify it's live
 
 
 @app.get("/health")
