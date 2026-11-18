@@ -107,6 +107,7 @@ def _build_sheet(
         n_sets=4,
         questions_per_column=25,
         roll_label="inside",          # "inside" -> digit in every bubble (ABCD style)
+        id_label="APPLICATION NO.",   # title of the ID block (e.g. "ROLL NUMBER")
         serial="00000001",            # "side"   -> digit labelled once on the left
         title="OMR ANSWER SHEET",
         name=None,
@@ -192,7 +193,7 @@ def _build_sheet(
     roll_w = lab_gutter + roll_digits * col_gap + pad
     roll_h = mm(6, dpi) + box_h + mm(2, dpi) + 10 * row_gap + pad
     roll_box = [inner_l, top, inner_l + roll_w, top + roll_h]
-    c_top = _panel(draw, roll_box, "APPLICATION NO.", f_hdr, dpi)
+    c_top = _panel(draw, roll_box, (id_label or "APPLICATION NO.").upper(), f_hdr, dpi)
 
     grid_x0 = inner_l + lab_gutter + col_gap / 2
     box_y0 = c_top + mm(2, dpi)

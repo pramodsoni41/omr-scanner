@@ -10,6 +10,20 @@
 <style>
   :root { --bg:#f3f4f6; --card:#fff; --ink:#111827; --muted:#6b7280;
           --accent:#2563eb; --ok:#15803d; --bad:#b91c1c; --line:#e5e7eb; }
+  #lockscreen { position:fixed; inset:0; background:#1f2937; z-index:9999;
+                display:flex; align-items:center; justify-content:center; }
+  #lockscreen.gone { display:none; }
+  .lockbox { background:#fff; border-radius:18px; padding:36px 28px; width:min(340px,90vw);
+             text-align:center; box-shadow:0 8px 40px #0005; }
+  .lockbox h1 { font-size:22px; margin:0 0 4px; color:#111827; }
+  .lockbox p  { font-size:13px; color:#6b7280; margin:0 0 24px; }
+  .lockbox input { width:100%; padding:13px; border:1.5px solid #e5e7eb; border-radius:10px;
+                   font-size:16px; text-align:center; letter-spacing:3px; margin-bottom:14px;
+                   outline:none; }
+  .lockbox input:focus { border-color:#2563eb; }
+  .lockbox button { width:100%; padding:13px; background:#2563eb; color:#fff; border:0;
+                    border-radius:10px; font-size:15px; font-weight:600; }
+  .lockbox .lockerr { color:#b91c1c; font-size:13px; margin-top:10px; min-height:18px; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { margin:0; font-family:system-ui,Segoe UI,Roboto,sans-serif;
          background:var(--bg); color:var(--ink); padding-bottom:80px; }
@@ -62,6 +76,19 @@
 </style>
 </head>
 <body>
+
+<!-- ============ LOCK SCREEN ============ -->
+<div id="lockscreen">
+  <div class="lockbox">
+    <h1>🔒 OMR Scanner</h1>
+    <p>IIT (BHU) — Enter password to continue</p>
+    <input id="pin" type="password" placeholder="Password" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter') unlock()">
+    <button onclick="unlock()">Unlock</button>
+    <div class="lockerr" id="lockerr"></div>
+  </div>
+</div>
+
 <header>
   <div>OMR Scanner <small id="examline"></small></div>
   <button class="gear" onclick="show('server')" title="Server settings">⚙️</button>
@@ -96,6 +123,8 @@
     </div>
     <label>Title on sheet</label>
     <input id="g_title" type="text" value="IIT (BHU) - OMR ANSWER SHEET">
+    <label>ID block label (e.g. ROLL NUMBER or APPLICATION NO.)</label>
+    <input id="g_idlabel" type="text" value="ROLL NUMBER">
     <button id="g_btn" onclick="generate()">Generate sheets</button>
     <div id="g_out"></div>
   </section>
@@ -137,7 +166,24 @@
 </nav>
 
 <script>
+// ---- Password gate -------------------------------------------------------
+const PASS = "omr@iitbhu";          // ← change this to your password
 const $ = id => document.getElementById(id);
+(function checkLock(){
+  if(sessionStorage.getItem("omr_unlocked") === "1")
+    document.getElementById("lockscreen").classList.add("gone");
+})();
+function unlock(){
+  if($("pin").value === PASS){
+    sessionStorage.setItem("omr_unlocked","1");
+    $("lockscreen").classList.add("gone");
+  } else {
+    $("lockerr").textContent = "Incorrect password. Try again.";
+    $("pin").value = "";
+    $("pin").focus();
+  }
+}
+// -------------------------------------------------------------------------
 
 // ---- backend URL: stored override, else the deployed default
 const DEFAULT_API = "https://omr-api-vydg.onrender.com";
@@ -231,7 +277,7 @@ async function generate(){
       n_questions:+$("g_q").value, n_options:+$("g_o").value,
       roll_digits:+$("g_r").value, n_sets:+$("g_s").value,
       questions_per_column:+$("g_pc").value, n_sheets:+$("g_n").value,
-      title:$("g_title").value
+      title:$("g_title").value, id_label:$("g_idlabel").value
     };
     const r = await fetch(api("/generate"), {method:"POST",
       headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
