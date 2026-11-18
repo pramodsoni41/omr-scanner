@@ -236,9 +236,10 @@ def _build_sheet(
     # ---- 4b. Write-in fields: wide boxes, no "CANDIDATE INFO" chrome ------- #
     # Label above each box; boxes run wide to the right margin. They start below
     # the QR block (top-right) so the wide boxes clear it.
-    info_labels = ["Specialization", "Candidate Sign", "Invigilator Sign"]
-    info_box_h = mm(9, dpi)
-    info_gap = mm(4, dpi)
+    info_labels = ["Candidate Name", "Specialization",
+                   "Candidate Sign", "Invigilator Sign"]
+    info_box_h = mm(7, dpi)
+    info_gap = mm(3, dpi)
     info_right = inner_r                                   # extend wide
     qr_bottom = (qr_y + qr_side + mm(7, dpi)) if _HAVE_QR else top
     iy = max(top, qr_bottom)
