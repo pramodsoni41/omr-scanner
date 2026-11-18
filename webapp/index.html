@@ -73,6 +73,10 @@
          padding:10px; border-radius:10px; font-size:13px; margin-top:10px; }
   .warn { background:#fffbeb; color:#92400e; border:1px solid #fde68a;
           padding:10px; border-radius:10px; font-size:13px; }
+  .ff { display:flex; align-items:center; gap:8px; margin:6px 0; }
+  .ff input[type=checkbox] { width:20px; height:20px; flex:none; }
+  .ff .ff_txt { flex:1; }
+  #addfield { background:#e5e7eb; color:#111827; padding:8px; font-size:13px; margin-top:4px; }
 </style>
 </head>
 <body>
@@ -125,6 +129,14 @@
     <input id="g_title" type="text" value="IIT (BHU) - OMR ANSWER SHEET">
     <label>ID block label (e.g. APPLICATION NO. or ROLL NUMBER)</label>
     <input id="g_idlabel" type="text" value="APPLICATION NO.">
+    <label>Write-in boxes (tick to include; edit the label)</label>
+    <div id="infofields">
+      <div class="ff"><input type="checkbox" class="ff_chk" checked><input type="text" class="ff_txt" value="Candidate Name"></div>
+      <div class="ff"><input type="checkbox" class="ff_chk" checked><input type="text" class="ff_txt" value="Specialization"></div>
+      <div class="ff"><input type="checkbox" class="ff_chk" checked><input type="text" class="ff_txt" value="Candidate Sign"></div>
+      <div class="ff"><input type="checkbox" class="ff_chk" checked><input type="text" class="ff_txt" value="Invigilator Sign"></div>
+    </div>
+    <button id="addfield" onclick="addField()">+ Add another box</button>
     <button id="g_btn" onclick="generate()">Generate sheets</button>
     <div id="g_out"></div>
   </section>
@@ -269,15 +281,28 @@ async function saveApi(){
   }catch(e){ err("server_out", "Could not reach "+apiBase()+" — check the URL and that the server is awake."); }
 }
 
+function addField(){
+  const row = document.createElement("div");
+  row.className = "ff";
+  row.innerHTML = '<input type="checkbox" class="ff_chk" checked>'+
+                  '<input type="text" class="ff_txt" placeholder="Box label">';
+  document.getElementById("infofields").appendChild(row);
+}
+
 async function generate(){
   if(!API) return show("server");
   $("g_btn").disabled = true; $("g_out").innerHTML = '<p class="muted">Generating…</p>';
   try{
+    const info_fields = [...document.querySelectorAll('#infofields .ff')]
+      .filter(r => r.querySelector('.ff_chk').checked)
+      .map(r => r.querySelector('.ff_txt').value.trim())
+      .filter(Boolean);
     const body = {
       n_questions:+$("g_q").value, n_options:+$("g_o").value,
       roll_digits:+$("g_r").value, n_sets:+$("g_s").value,
       questions_per_column:+$("g_pc").value, n_sheets:+$("g_n").value,
-      title:$("g_title").value, id_label:$("g_idlabel").value
+      title:$("g_title").value, id_label:$("g_idlabel").value,
+      info_fields: info_fields
     };
     const r = await fetch(api("/generate"), {method:"POST",
       headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});

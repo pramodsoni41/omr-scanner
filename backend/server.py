@@ -71,6 +71,8 @@ class GenerateReq(BaseModel):
     questions_per_column: int = Field(25, ge=1, le=50)
     roll_label: str = "inside"
     id_label: str = "APPLICATION NO."
+    info_fields: list[str] = ["Candidate Name", "Specialization",
+                              "Candidate Sign", "Invigilator Sign"]
     n_sheets: int = Field(1, ge=1, le=2000)
     start_serial: int = 1
     title: str = "OMR ANSWER SHEET"
@@ -85,7 +87,8 @@ def generate(req: GenerateReq):
         n_sheets=req.n_sheets, n_questions=req.n_questions,
         n_options=req.n_options, roll_digits=req.roll_digits, n_sets=req.n_sets,
         questions_per_column=req.questions_per_column, roll_label=req.roll_label,
-        id_label=req.id_label, start_serial=req.start_serial, batch_name="SHEETS",
+        id_label=req.id_label, info_fields=req.info_fields,
+        start_serial=req.start_serial, batch_name="SHEETS",
         title=req.title, out_dir=d)
     return {
         "exam_id": exam_id,
@@ -251,7 +254,7 @@ def graded_zip(exam_id):
                         filename=f"{exam_id}_checked_sheets.zip")
 
 
-BUILD = "2026-11-18-candidate-name-box"   # bump on each deploy to verify it's live
+BUILD = "2026-11-18-info-fields-config"   # bump on each deploy to verify it's live
 
 
 @app.get("/health")

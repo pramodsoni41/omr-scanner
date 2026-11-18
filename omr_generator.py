@@ -108,6 +108,7 @@ def _build_sheet(
         questions_per_column=25,
         roll_label="inside",          # "inside" -> digit in every bubble (ABCD style)
         id_label="APPLICATION NO.",   # title of the ID block (e.g. "ROLL NUMBER")
+        info_fields=None,             # write-in box labels; None -> the default 4
         serial="00000001",            # "side"   -> digit labelled once on the left
         title="OMR ANSWER SHEET",
         name=None,
@@ -236,20 +237,30 @@ def _build_sheet(
     # ---- 4b. Write-in fields: wide boxes, no "CANDIDATE INFO" chrome ------- #
     # Label above each box; boxes run wide to the right margin. They start below
     # the QR block (top-right) so the wide boxes clear it.
-    info_labels = ["Candidate Name", "Specialization",
-                   "Candidate Sign", "Invigilator Sign"]
-    info_box_h = mm(7, dpi)
-    info_gap = mm(3, dpi)
+    if info_fields is None:
+        info_fields = ["Candidate Name", "Specialization",
+                       "Candidate Sign", "Invigilator Sign"]
+    info_fields = [str(s).strip() for s in info_fields if str(s).strip()]
     info_right = inner_r                                   # extend wide
     qr_bottom = (qr_y + qr_side + mm(7, dpi)) if _HAVE_QR else top
     iy = max(top, qr_bottom)
-    for lbl in info_labels:
-        draw.text((info_left, iy), lbl, font=f_small, fill=INK)
-        lbl_h = draw.textbbox((0, 0), lbl, font=f_small)[3]
-        by0 = iy + lbl_h + mm(1.4, dpi)
-        draw.rectangle([info_left, by0, info_right, by0 + info_box_h],
-                       outline=PANEL, width=max(1, mm(0.3, dpi)))
-        iy = by0 + info_box_h + info_gap
+    n_info = len(info_fields)
+    if n_info:
+        # size boxes to fill the space down to the ID block's bottom
+        bottom_limit = roll_box[3]
+        lbl_h = draw.textbbox((0, 0), "Ayg", font=f_small)[3]
+        gap_lbl = mm(1.4, dpi)
+        gap_between = mm(3, dpi)
+        avail = bottom_limit - iy
+        box_h = (avail - n_info * (lbl_h + gap_lbl)
+                 - (n_info - 1) * gap_between) / n_info
+        box_h = int(np.clip(box_h, mm(6, dpi), mm(16, dpi)))
+        for lbl in info_fields:
+            draw.text((info_left, iy), lbl, font=f_small, fill=INK)
+            by0 = iy + lbl_h + gap_lbl
+            draw.rectangle([info_left, by0, info_right, by0 + box_h],
+                           outline=PANEL, width=max(1, mm(0.3, dpi)))
+            iy = by0 + box_h + gap_between
 
     # ---- 5. Answers panel (adaptive: bubbles grow to fill the space) ------ #
     ans_top = max(roll_box[3], top + mm(70, dpi)) + mm(6, dpi)
