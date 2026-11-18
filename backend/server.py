@@ -250,10 +250,19 @@ def graded_zip(exam_id):
                         filename=f"{exam_id}_checked_sheets.zip")
 
 
+BUILD = "2026-11-18-specialization-boxes"   # bump on each deploy to verify it's live
+
+
 @app.get("/health")
 def health():
     exams = sorted(os.listdir(EXAMS_DIR)) if os.path.isdir(EXAMS_DIR) else []
-    return {"service": "OMR", "status": "ok", "exams": len(exams), "docs": "/docs"}
+    return {"service": "OMR", "status": "ok", "exams": len(exams),
+            "build": BUILD, "docs": "/docs"}
+
+
+@app.get("/version")
+def version():
+    return {"build": BUILD}
 
 
 # ---- serve the PWA frontend ------------------------------------------------ #
