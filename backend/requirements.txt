@@ -11,3 +11,4 @@ pillow
 qrcode
 pypdf
 opencv-python-headless>=4.7
+pymupdf

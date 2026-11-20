@@ -32,11 +32,34 @@ import zipfile
 import cv2
 import numpy as np
 import pandas as pd
+import pymupdf                                   # PDF -> page images
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+
+
+# --------------------------------------------------------------------------- #
+# PDF -> list of BGR page images (single or multi-page scans)
+# --------------------------------------------------------------------------- #
+def _pdf_to_images(raw, dpi=200):
+    imgs = []
+    doc = pymupdf.open(stream=raw, filetype="pdf")
+    try:
+        for page in doc:
+            pix = page.get_pixmap(dpi=dpi)
+            arr = np.frombuffer(pix.samples, np.uint8).reshape(pix.height, pix.width, pix.n)
+            if pix.n == 4:
+                arr = cv2.cvtColor(arr, cv2.COLOR_RGBA2BGR)
+            elif pix.n == 3:
+                arr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+            else:
+                arr = cv2.cvtColor(arr, cv2.COLOR_GRAY2BGR)
+            imgs.append(arr.copy())
+    finally:
+        doc.close()
+    return imgs
 
 STATIC_DIR = os.environ.get("OMR_STATIC_DIR") or \
     os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -121,6 +144,14 @@ def template_json(exam_id):
 # --------------------------------------------------------------------------- #
 # 2. Upload answer key
 # --------------------------------------------------------------------------- #
+def _find_key(d):
+    for name in ("key.xlsx", "key.csv"):
+        p = os.path.join(d, name)
+        if os.path.exists(p):
+            return p
+    return None
+
+
 @app.post("/exams/{exam_id}/key")
 async def upload_key(exam_id, file: UploadFile = File(...)):
     d = _exam_dir(exam_id)
@@ -130,7 +161,6 @@ async def upload_key(exam_id, file: UploadFile = File(...)):
     dst = os.path.join(d, "key" + ext)
     with open(dst, "wb") as fh:
         shutil.copyfileobj(file.file, fh)
-    # validate + build a preview of the parsed key
     try:
         sets, rows = rdr.load_key_all(dst)
         if not sets:
@@ -139,8 +169,7 @@ async def upload_key(exam_id, file: UploadFile = File(...)):
     except Exception as e:
         os.remove(dst)
         raise HTTPException(400, f"could not read key: {e}")
-    return {"ok": True, "key": os.path.basename(dst),
-            "sets": sets, "n_questions": len(rows), "rows": rows}
+    return {"ok": True, "sets": sets, "n_questions": len(rows), "rows": rows}
 
 
 @app.get("/exams/{exam_id}/key")
@@ -152,14 +181,6 @@ def get_key(exam_id):
         raise HTTPException(404, "no answer key uploaded")
     sets, rows = rdr.load_key_all(key)
     return {"sets": sets, "n_questions": len(rows), "rows": rows}
-
-
-def _find_key(d):
-    for name in ("key.xlsx", "key.csv"):
-        p = os.path.join(d, name)
-        if os.path.exists(p):
-            return p
-    return None
 
 
 # --------------------------------------------------------------------------- #
@@ -175,8 +196,8 @@ async def grade(exam_id,
     template_path = os.path.join(d, "SHEETS.template.json")
     if not os.path.exists(template_path):
         raise HTTPException(400, "exam has no template")
-    key = _find_key(d)
-    if key is None:
+    key_path = _find_key(d)
+    if key_path is None:
         raise HTTPException(400, "no answer key uploaded yet (POST /exams/{id}/key)")
     template = rdr.load_template(template_path)
     graded_dir = os.path.join(d, "graded")
@@ -184,26 +205,40 @@ async def grade(exam_id,
 
     results = []
     for idx, uf in enumerate(files):
-        data = np.frombuffer(await uf.read(), np.uint8)
-        img = cv2.imdecode(data, cv2.IMREAD_COLOR)
-        if img is None:
-            results.append({"FILENAME": uf.filename, "error": "unreadable image"})
-            continue
-        res, annot = rdr.grade(img, template, key,
-                               marks_correct=marks_correct,
-                               marks_incorrect=marks_incorrect,
-                               marks_unattempted=marks_unattempted)
-        res["FILENAME"] = uf.filename
-        # unique file name per sheet (filename stem keeps re-grades stable and
-        # avoids collisions when two sheets share a roll / have no roll)
-        stem = re.sub(r"[^A-Za-z0-9_.-]+", "_",
-                      os.path.splitext(os.path.basename(uf.filename))[0])[:40]
-        tag = stem or (res.get("roll") or f"sheet{idx:03d}")
-        roll = res.get("roll")
-        annot_name = f"{roll + '_' if roll and roll != '?' else ''}{tag}.jpg"
-        cv2.imwrite(os.path.join(graded_dir, annot_name), annot)
-        res["graded_image"] = f"/exams/{exam_id}/graded/{annot_name}"
-        results.append(res)
+        raw = await uf.read()
+        name = uf.filename or f"file{idx}"
+        is_pdf = name.lower().endswith(".pdf") or raw[:5] == b"%PDF-"
+
+        # one upload -> one or more "pages" to grade (a PDF may hold many sheets)
+        pages = []       # list of (stem, image)
+        base = re.sub(r"[^A-Za-z0-9_.-]+", "_",
+                      os.path.splitext(os.path.basename(name))[0])[:36]
+        if is_pdf:
+            try:
+                imgs = _pdf_to_images(raw)
+            except Exception as e:
+                results.append({"FILENAME": name, "error": f"bad PDF: {e}"})
+                continue
+            for pi, im in enumerate(imgs):
+                pages.append((f"{base}_p{pi + 1}", im))
+        else:
+            im = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
+            if im is None:
+                results.append({"FILENAME": name, "error": "unreadable image"})
+                continue
+            pages.append((base or f"sheet{idx:03d}", im))
+
+        for pstem, img in pages:
+            res, annot = rdr.grade(img, template, key_path,
+                                   marks_correct=marks_correct,
+                                   marks_incorrect=marks_incorrect,
+                                   marks_unattempted=marks_unattempted)
+            res["FILENAME"] = pstem if is_pdf else name
+            roll = res.get("roll")
+            annot_name = f"{roll + '_' if roll and roll != '?' else ''}{pstem}.jpg"
+            cv2.imwrite(os.path.join(graded_dir, annot_name), annot)
+            res["graded_image"] = f"/exams/{exam_id}/graded/{annot_name}"
+            results.append(res)
 
     # consolidated marksheet
     cols = ["FILENAME", "roll", "set", "correct", "incorrect",
@@ -258,7 +293,7 @@ def graded_zip(exam_id):
                         filename=f"{exam_id}_checked_sheets.zip")
 
 
-BUILD = "2026-11-18-info-fields-max4"   # bump on each deploy to verify it's live
+BUILD = "2026-11-20-pdf-input"   # bump on each deploy to verify it's live
 
 
 @app.get("/health")

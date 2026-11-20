@@ -163,8 +163,8 @@
       <div><label>Wrong</label><input id="m_w" type="number" value="0" step="0.25"></div>
       <div><label>Blank</label><input id="m_b" type="number" value="0" step="0.25"></div>
     </div>
-    <label>Photos (camera or gallery, multiple)</label>
-    <input id="s_files" type="file" accept="image/*" capture="environment" multiple>
+    <label>Photos or PDF (images, or a single/multi-page PDF scan)</label>
+    <input id="s_files" type="file" accept="image/*,application/pdf,.pdf" multiple>
     <button id="s_btn" onclick="gradeScans()">Grade</button>
     <div id="s_out"></div>
   </section>
