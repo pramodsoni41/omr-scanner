@@ -38,14 +38,18 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+STATIC_DIR = os.environ.get("OMR_STATIC_DIR") or \
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 # make the engine importable (it lives one level up)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import omr_generator as gen
 import omr_reader as rdr
 
-EXAMS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "exams")
+# Data location: OMR_DATA_DIR wins (desktop app points this next to the .exe so
+# exams travel on the USB); otherwise a local "exams" folder (used on the server).
+EXAMS_DIR = os.environ.get("OMR_DATA_DIR") or \
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "exams")
 os.makedirs(EXAMS_DIR, exist_ok=True)
 
 app = FastAPI(title="OMR Service", version="1.0")
