@@ -81,18 +81,6 @@
 </head>
 <body>
 
-<!-- ============ LOCK SCREEN ============ -->
-<div id="lockscreen">
-  <div class="lockbox">
-    <h1>🔒 OMR Scanner</h1>
-    <p>IIT (BHU) — Enter password to continue</p>
-    <input id="pin" type="password" placeholder="Password" autocomplete="current-password"
-           onkeydown="if(event.key==='Enter') unlock()">
-    <button onclick="unlock()">Unlock</button>
-    <div class="lockerr" id="lockerr"></div>
-  </div>
-</div>
-
 <header>
   <div>OMR Scanner <small id="examline"></small></div>
   <button class="gear" onclick="show('server')" title="Server settings">⚙️</button>
@@ -177,24 +165,7 @@
 </nav>
 
 <script>
-// ---- Password gate -------------------------------------------------------
-const PASS = "omr@iitbhu";          // ← change this to your password
 const $ = id => document.getElementById(id);
-(function checkLock(){
-  if(sessionStorage.getItem("omr_unlocked") === "1")
-    document.getElementById("lockscreen").classList.add("gone");
-})();
-function unlock(){
-  if($("pin").value === PASS){
-    sessionStorage.setItem("omr_unlocked","1");
-    $("lockscreen").classList.add("gone");
-  } else {
-    $("lockerr").textContent = "Incorrect password. Try again.";
-    $("pin").value = "";
-    $("pin").focus();
-  }
-}
-// -------------------------------------------------------------------------
 
 // ---- backend URL: stored override, else the deployed default
 const DEFAULT_API = window.location.origin;  // desktop/local: talk to this server
